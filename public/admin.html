@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AAST Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <h1>AAST Admin Panel</h1>
+        <button onclick="logout()"
+            style="width: auto; padding: 5px 15px; background: var(--aast-gold); color: black;">Logout</button>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- AI Predictor Card -->
+        <div class="card" style="border-left: 5px solid var(--aast-gold); background: #fffdf5;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: 2rem; animation: pulse 2s infinite;">📊</div>
+                <div>
+                    <h4 style="color: var(--aast-blue); margin-bottom: 5px;">AI Traffic Predictor</h4>
+                    <p id="aiPrediction" style="font-size: 0.9rem; font-weight: 600;">Analyzing historical data...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Live Priority Queue</h3>
+            <div id="queueStats" style="margin-bottom: 1rem; font-weight: 600;">Loading queue...</div>
+            <table id="ticketTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student Name</th>
+                        <th>Service</th>
+                        <th>AI Smart Summary</th>
+                        <th>Importance</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketList">
+                    <!-- Tickets will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="border-top: 5px solid #ff4d4d;">
+            <h3>Cancel Ticket</h3>
+            <div class="form-group" style="display: flex; gap: 10px;">
+                <input type="text" id="cancelCID" placeholder="Enter College ID to cancel">
+                <button onclick="cancelTicket()" style="width: 150px; background: #ff4d4d;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+
+    <script>
+        // Security Check
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'admin') {
+            window.location.href = 'index.html';
+        }
+
+        async function updateAIStats(count) {
+            const predictor = document.getElementById('aiPrediction');
+            const hour = new Date().getHours();
+
+            // More dynamic prediction
+            if (count > 3) {
+                predictor.innerHTML = `<span style="color: #ff4d4d;">⚠️ AI Predicts: High traffic expected between ${hour}:00 - ${hour + 2}:00. Recommend opening extra windows.</span>`;
+            } else if (count > 0) {
+                predictor.innerHTML = `<span style="color: #f9b233;">ℹ️ AI Predicts: Moderate traffic. Processing time is optimal.</span>`;
+            } else {
+                predictor.innerHTML = `<span style="color: #22c55e;">✅ AI Predicts: Low traffic. System at peak efficiency.</span>`;
+            }
+        }
+
+        async function loadQueue() {
+            const res = await fetch('/api/tickets/queue');
+            const tickets = await res.json();
+
+            updateAIStats(tickets.length);
+            document.getElementById('queueStats').innerText = `Total Pending: ${tickets.length}`;
+
+            const tbody = document.getElementById('ticketList');
+            tbody.innerHTML = '';
+
+            tickets.forEach(t => {
+                // AI Automated Summary Logic (Simulated)
+                let summary = "<i>No details provided</i>";
+                if (t.description && t.description.length > 5) {
+                    const words = t.description.split(' ');
+                    summary = `<b>${words.slice(0, 3).join(' ')}</b>${words.length > 3 ? '...' : ''}`;
+                }
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>#${t.id}</td>
+                    <td>
+                        <div style="font-weight: 700;">${t.firstName} ${t.lastName}</div>
+                        <div style="font-size: 0.7rem; color: #666;">ID: ${t.collegeID}</div>
+                        ${t.isVIP ? '<span class="badge badge-vip">VIP</span>' : ''}
+                    </td>
+                    <td><span class="badge ${t.service === 'emergency' ? 'badge-emergency' : ''}">${t.service}</span></td>
+                    <td style="font-size: 0.85rem; color: var(--aast-blue); font-style: italic;">
+                        ${summary}
+                    </td>
+                    <td>${Math.floor(t.current_importance)}</td>
+                    <td><button onclick="serveTicket(${t.id})" style="padding: 5px 10px; font-size: 0.8rem;">Serve</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function serveTicket(id) {
+            await fetch(`/api/tickets/serve/${id}`, { method: 'PUT' });
+            loadQueue();
+        }
+
+        async function cancelTicket() {
+            const collegeID = document.getElementById('cancelCID').value;
+            const res = await fetch('/api/tickets/cancel', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collegeID })
+            });
+            const data = await res.json();
+            if (data.affectedRows > 0) {
+                alert('Ticket cancelled.');
+                loadQueue();
+            } else {
+                alert('No pending ticket found for this ID.');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        // Initial load and periodic refresh
+        loadQueue();
+        setInterval(loadQueue, 5000);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard - AAST Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>AAST Student Portal</h1>
+        <button onclick="logout()" style="width: auto; padding: 5px 15px; background: var(--aast-gold); color: black;">Logout</button>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="card">
+            <h3>Book a New Service Ticket</h3>
+            <form id="ticketForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="lastName" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>College ID (9 Digits)</label>
+                    <input type="text" id="collegeID" maxlength="9" required>
+                </div>
+                <div class="form-group">
+                    <label>Problem Description (AI will analyze your text)</label>
+                    <textarea id="description" placeholder="Describe your issue here..." rows="3" style="width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #ddd;"></textarea>
+                    <div id="aiSuggestion" style="font-size: 0.8rem; color: var(--aast-blue); margin-top: 5px; font-weight: 600; display: none;">
+                        ✨ AI Suggestion: <span id="suggestedService">...</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Service Type</label>
+                    <select id="service">
+                        <option value="normal">Normal</option>
+                        <option value="academic">Academic</option>
+                        <option value="financial">Financial</option>
+                        <option value="government">Government</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Student Category</label>
+                    <select id="studentType">
+                        <option value="normal">Normal Student</option>
+                        <option value="final">Final Year Student</option>
+                        <option value="graduate">Graduate Student</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label>Is VIP?</label>
+                        <select id="isVIP">
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Days to Deadline</label>
+                        <input type="number" id="deadlineDays" value="7">
+                    </div>
+                </div>
+                <button type="submit" class="secondary">Submit Ticket</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Security Check
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'user') {
+            window.location.href = 'index.html';
+        }
+
+        // Auto-fill student data
+        if (user) {
+            document.getElementById('collegeID').value = user.collegeID || '';
+            // If we had firstName/lastName in the user table, we'd fill them here too
+        }
+
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        // AI Smart Categorizer Logic (Enhanced)
+        const descriptionInput = document.getElementById('description');
+        const serviceSelect = document.getElementById('service');
+        const aiSuggestion = document.getElementById('aiSuggestion');
+        const suggestedService = document.getElementById('suggestedService');
+
+        const keywords = {
+            'financial': ['money', 'pay', 'fees', 'scholarship', 'financial', 'دفع', 'مصاريف', 'فلوس', 'قسط', 'بنك'],
+            'academic': ['grade', 'exam', 'gpa', 'course', 'study', 'درجات', 'امتحان', 'مواد', 'تسجيل', 'كورس'],
+            'government': ['passport', 'visa', 'id card', 'military', 'paperwork', 'تأشيرة', 'جيش', 'أوراق', 'سفر', 'بطاقة'],
+            'emergency': ['hurt', 'accident', 'fire', 'ambulance', 'urgent', 'حادث', 'إسعاف', 'طارئ', 'حريق', 'تعبان']
+        };
+
+        descriptionInput.addEventListener('input', (e) => {
+            const text = e.target.value.toLowerCase();
+            let found = false;
+
+            for (const [category, words] of Object.entries(keywords)) {
+                if (words.some(word => text.includes(word))) {
+                    suggestedService.innerText = category.charAt(0).toUpperCase() + category.slice(1);
+                    aiSuggestion.style.display = 'block';
+                    serviceSelect.value = category; 
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) aiSuggestion.style.display = 'none';
+        });
+
+        document.getElementById('ticketForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const ticketData = {
+                firstName: document.getElementById('firstName').value,
+                middleName: '', 
+                lastName: document.getElementById('lastName').value,
+                collegeID: document.getElementById('collegeID').value,
+                description: document.getElementById('description').value,
+                service: document.getElementById('service').value,
+                studentType: document.getElementById('studentType').value,
+                isVIP: parseInt(document.getElementById('isVIP').value),
+                deadlineDays: parseInt(document.getElementById('deadlineDays').value)
+            };
+
+            const res = await fetch('/api/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ticketData)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert('Ticket booked successfully! Your ID is: ' + data.ticketId);
+                e.target.reset();
+                aiSuggestion.style.display = 'none';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        };
+    </script>
+</body>
+</html>

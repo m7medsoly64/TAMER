@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAST Portal - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>AAST SMART SYSTEM</h1>
+        </div>
+    </header>
+
+    <div class="auth-container">
+        <h2 id="authTitle">System Login</h2>
+        
+        <!-- Login Form -->
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Enter username" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Enter password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+
+        <!-- Register Form (Hidden by default) -->
+        <form id="registerForm" style="display: none;">
+            <div class="form-group">
+                <label>New Username</label>
+                <input type="text" id="regUsername" required>
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="regPassword" required>
+            </div>
+            <div class="form-group">
+                <label>College ID (9 Digits)</label>
+                <input type="text" id="regCollegeID" maxlength="9" required>
+            </div>
+            <button type="submit" class="secondary">Create Account</button>
+        </form>
+
+        <p id="message" style="color: red; text-align: center; margin-top: 1rem;"></p>
+        
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="#" id="toggleAuth" style="font-size: 0.9rem; color: var(--aast-blue);">Don't have an account? Register here</a>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const authTitle = document.getElementById('authTitle');
+        const toggleAuth = document.getElementById('toggleAuth');
+        const message = document.getElementById('message');
+
+        toggleAuth.onclick = (e) => {
+            e.preventDefault();
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                authTitle.innerText = 'System Login';
+                toggleAuth.innerText = "Don't have an account? Register here";
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                authTitle.innerText = 'Student Registration';
+                toggleAuth.innerText = "Already have an account? Login here";
+            }
+            message.innerText = '';
+        };
+
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || 'Login failed');
+                }
+
+                const data = await res.json();
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = data.user.role === 'admin' ? 'admin.html' : 'user.html';
+            } catch (err) {
+                message.innerText = 'Error: ' + err.message;
+                console.error(err);
+            }
+        };
+
+        registerForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const collegeID = document.getElementById('regCollegeID').value;
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, collegeID })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert('Account created! You can now login.');
+                    toggleAuth.click();
+                } else {
+                    message.innerText = data.message || 'Registration failed';
+                }
+            } catch (err) {
+                message.innerText = 'Connection Error: Is the server running?';
+                console.error(err);
+            }
+        };
+    </script>
+</body>
+</html>
