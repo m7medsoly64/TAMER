@@ -12,21 +12,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// MySQL Connection (Update with your credentials)
-const db = mysql.createConnection({
-    host: 'localhost',
+// MySQL Connection Pool (Handles automatic reconnections)
+const db = mysql.createPool({
+    host: '127.0.0.1',
     user: 'root',
-    password: '', // Enter your MySQL password
-    database: 'university_system'
+    password: '', 
+    database: 'university_system',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    connectTimeout: 10000
 });
 
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to MySQL:', err);
-        return;
-    }
-    console.log('Connected to MySQL database');
-});
+console.log('Database Connection Pool created');
 
 // Priority Logic Helpers (Translated from C++)
 const getServicePriority = (service) => {
@@ -62,7 +60,7 @@ app.post('/api/register', (req, res) => {
     db.query(query, [username, password, collegeID], (err, result) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ success: false, message: 'Username or College ID already exists' });
-            return res.status(500).json({ error: err.message });
+            return res.status(500).json({ success: false, message: 'Database Error: ' + err.message });
         }
         res.json({ success: true, message: 'Registration successful' });
     });
@@ -93,7 +91,7 @@ app.post('/api/tickets', (req, res) => {
     ];
 
     db.query(query, values, (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(500).json({ success: false, message: 'Database Error: ' + err.message });
         res.json({ success: true, ticketId: result.insertId });
     });
 });
